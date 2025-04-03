@@ -155,26 +155,26 @@ class Trimmer {
   /// video format is passed in [customVideoFormat], then the app may
   /// crash.
   ///
-  Future<void> saveTrimmedVideo({
-    required double startValue,
-    required double endValue,
-    required Function(String? outputPath) onSave,
-    FileFormat? outputFormat,
-    String? ffmpegCommand,
-    String? customVideoFormat,
-    int? fpsGIF,
-    int? scaleGIF,
-    String? videoFolderName,
-    String? videoFileName,
-    StorageDir? storageDir,
-  }) async {
+  Future<void> saveTrimmedVideo(
+      {required double startValue,
+      required double endValue,
+      required Function(String? outputPath) onSave,
+      FileFormat? outputFormat,
+      String? ffmpegCommand,
+      String? customVideoFormat,
+      int? fpsGIF,
+      int? scaleGIF,
+      String? videoFolderName,
+      String? videoFileName,
+      StorageDir? storageDir,
+      bool includeAudio = false}) async {
     final String videoPath = currentVideoFile!.path;
 
     await _videoTrimmer.loadVideo(videoPath);
     final trimmed = await _videoTrimmer.trimVideo(
       startTimeMs: startValue.toInt(),
       endTimeMs: endValue.toInt(),
-      includeAudio: true,
+      includeAudio: includeAudio,
     );
     onSave(trimmed);
     await _videoTrimmer.clearCache();
