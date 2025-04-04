@@ -167,7 +167,7 @@ class Trimmer {
       String? videoFolderName,
       String? videoFileName,
       StorageDir? storageDir,
-      bool includeAudio = false}) async {
+      bool includeAudio = true}) async {
     final String videoPath = currentVideoFile!.path;
 
     await _videoTrimmer.loadVideo(videoPath);
