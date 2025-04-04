@@ -1,13 +1,17 @@
 import 'dart:io';
 
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:example/preview.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:video_trimmer/video_trimmer.dart';
 
 class TrimmerView extends StatefulWidget {
   final File file;
 
   const TrimmerView(this.file, {super.key});
+
   @override
   State<TrimmerView> createState() => _TrimmerViewState();
 }
@@ -25,7 +29,15 @@ class _TrimmerViewState extends State<TrimmerView> {
   void initState() {
     super.initState();
 
-    _loadVideo();
+    _checkPermission();
+  }
+
+  Future<void> requestStoragePermission() async {
+    if (await Permission.storage.request().isGranted) {
+      print("✅ Storage Permission Granted");
+    } else {
+      print("❌ Storage Permission Denied");
+    }
   }
 
   void _loadVideo() {
@@ -40,11 +52,13 @@ class _TrimmerViewState extends State<TrimmerView> {
     _trimmer.saveTrimmedVideo(
       startValue: _startValue,
       endValue: _endValue,
-      onSave: (outputPath) {
+      onSave: (outputPath) async {
         setState(() {
           _progressVisibility = false;
         });
         debugPrint('OUTPUT PATH: $outputPath');
+        // var ff = await moveCacheFileToFolder(outputPath ?? '', "SavedVideos");
+        // var file = File(outputPath ?? '');
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => Preview(outputPath),
@@ -52,6 +66,46 @@ class _TrimmerViewState extends State<TrimmerView> {
         );
       },
     );
+  }
+
+  Future<String?> moveCacheFileToFolder(
+      String cacheFilePath, String folderName) async {
+    try {
+      // Get the new directory
+      Directory? newDir;
+      if (Platform.isAndroid) {
+        newDir = await getExternalStorageDirectory(); // Android
+      } else {
+        newDir = await getApplicationDocumentsDirectory(); // iOS
+      }
+
+      if (newDir == null) {
+        print("❌ Failed to get storage directory.");
+        return null;
+      }
+
+      // Create the folder inside the directory
+      String newFolderPath = "${newDir.path}/$folderName";
+      Directory(newFolderPath).createSync(recursive: true);
+
+      // Generate new file path
+      String fileName = cacheFilePath.split('/').last; // Extract file name
+      String newFilePath = "$newFolderPath/$fileName";
+
+      // Move the file
+      File cacheFile = File(cacheFilePath);
+      if (await cacheFile.exists()) {
+        await cacheFile.rename(newFilePath);
+        print("✅ File moved successfully: $newFilePath");
+        return newFilePath;
+      } else {
+        print("❌ Cache file not found: $cacheFilePath");
+        return null;
+      }
+    } catch (e) {
+      print("❌ Error moving file: $e");
+      return null;
+    }
   }
 
   @override
@@ -134,5 +188,42 @@ class _TrimmerViewState extends State<TrimmerView> {
         ),
       ),
     );
+  }
+
+  Future<void> _checkPermission() async {
+    await requestStoragePermission();
+    if (Platform.isIOS) {
+      bool storage = await Permission.storage.status.isGranted;
+      if (storage) {
+        _loadVideo();
+      }
+    } else {
+      bool storage = true;
+      bool videos = true;
+      bool photos = true;
+
+      // Only check for storage < Android 13
+      DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+
+      if (Platform.isAndroid) {
+        AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+        if (androidInfo.version.sdkInt >= 33) {
+          videos = await Permission.videos.status.isGranted;
+          photos = await Permission.photos.status.isGranted;
+        } else {
+          storage = await Permission.storage.status.isGranted;
+        }
+
+        if (storage && videos && photos) {
+          if (await Permission.mediaLibrary.request().isGranted) {
+            _loadVideo();
+          }
+        } else {
+          if (await Permission.mediaLibrary.request().isGranted) {
+            _loadVideo();
+          }
+        }
+      }
+    }
   }
 }
